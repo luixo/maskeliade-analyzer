@@ -1,12 +1,21 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import './index.css';
-import App from './App';
-import * as serviceWorker from './serviceWorker';
+import * as React from 'react';
+import * as ReactDOM from 'react-dom';
+import {createGlobalStyle} from 'styled-components/macro';
+import Analyzer from './views/analyzer';
 
-ReactDOM.render(<App />, document.getElementById('root'));
+const GlobalStyle = createGlobalStyle`
+    body {
+        margin: 0;
+        font-family: 'Georgia', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+`;
 
-// If you want your app to work offline and load faster, you can change
-// unregister() to register() below. Note this comes with some pitfalls.
-// Learn more about service workers: https://bit.ly/CRA-PWA
-serviceWorker.unregister();
+ReactDOM.render(
+    <>
+        <GlobalStyle />
+        <Analyzer />
+    </>,
+    document.getElementById('root')
+);
