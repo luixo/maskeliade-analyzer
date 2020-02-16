@@ -1,35 +1,40 @@
 import React from 'react';
 import {area, curveNatural} from 'd3-shape';
-import {CustomLayerProps, ResponsiveLine, LineSvgProps, Datum, Serie} from '@nivo/line';
+import {CustomLayerProps, ResponsiveLine, LineSvgProps, Datum, Serie, Layer, CustomLayer} from '@nivo/line';
 
-export interface SpectrumStreamPoint {
+export interface SpectrumLinePoint {
+    x: number;
+    y: number;
+}
+
+interface SpectrumLine {
+    type: 'line';
+    color: string;
+    points: SpectrumLinePoint[];
+}
+
+export interface SpectrumRangePoint {
     x: number;
     low: number;
     high: number;
 }
 
-interface Props {
-    data: Float32Array;
-    model?: SpectrumStreamPoint[];
+interface SpectrumRange {
+    type: 'range';
+    color: string;
+    points: SpectrumRangePoint[];
 }
 
+type SpectrumDatum = SpectrumRange | SpectrumLine;
+
+interface Props {
+    data: SpectrumDatum[];
+}
+
+const START_FREQ = 20;
 const END_FREQ = 20 * 2048 / 2;
 const TOP_DB = 6;
-const LOW_DB = -180;
-
-const AreaLayer = ({data, xScale, yScale}: CustomLayerProps): React.ReactNode => {
-    const model = data.find(({id}) => id === 'model');
-    if (!model) {
-        return;
-    }
-    const areaGenerator = area<Datum>()
-        .x(d => xScale(d.x!))
-        .y0(d => yScale(d.low))
-        .y1(d => yScale(d.high))
-        .curve(curveNatural);
-
-    return <path d={areaGenerator(model.data) || undefined} fill="rgba(140, 219, 243, .5)" />;
-};
+const LOW_DB = -100;
 
 function getLogarithmicAxisValue(from: number, to: number): number[] {
     let min = Math.floor(Math.log10(from));
@@ -48,61 +53,84 @@ function getDecibelValues(range: number): number[] {
     return [TOP_DB, 0, -6, -12, -18, -24, -40, -60, -120, -180].filter((value) => value >= range);
 }
 
+function getAreaLayer(originalData: SpectrumDatum[]): CustomLayer {
+    return (props: CustomLayerProps): React.ReactNode => {
+        const areaGenerator = area<Datum>()
+            .x(d => props.xScale(d.x!))
+            .y0(d => props.yScale(d.low))
+            .y1(d => props.yScale(d.high))
+            .curve(curveNatural);
+
+        return props.data.map((data, index) => {
+            if (originalData[index].type !== 'range') {
+                return null;
+            }
+            return (
+                <path
+                    key={data.id}
+                    d={areaGenerator(data.data) || undefined}
+                    fill={originalData[index].color}
+                    fillOpacity={0.5}
+                />
+            );
+        });
+    };
+}
+
+function getLayers(data: SpectrumDatum[]): Layer[] {
+    return ['grid', 'markers', 'axes', getAreaLayer(data), 'lines', 'points', 'slices', 'mesh', 'legends'];
+}
+
 const commonProps: Omit<LineSvgProps, 'data'> = {
     curve: 'monotoneX',
     enablePoints: false,
     animate: false,
     lineWidth: 1,
-    layers: ['grid', 'markers', 'axes', AreaLayer, 'lines', 'points', 'slices', 'mesh', 'legends'],
     axisLeft: {
         legend: 'db'
     },
-    margin: {top: 50, right: 50, bottom: 50, left: 50},
-    colors: ['rgba(100, 200, 255, 127)', 'transparent']
+    margin: {top: 50, right: 50, bottom: 50, left: 50}
 };
 
 const FftVisualizer: React.FC<Props> = (props) => {
-    const size = props.data.length;
-    const freqDelta = 48000 / (size * 2);
-    const parsed = props.data.reduce<{x: number, y: number | null}[]>((memo, point, index) => {
-        const nextValue = point;
-        return memo.concat({
-            x: index * freqDelta,
-            y: nextValue < LOW_DB ? null : nextValue
-        });
-    }, []).slice(1, -1);
-    const data: Serie[] = [{
-        id: 'fft',
-        data: parsed
-    }];
-    if (props.model) {
-        data.push({
-            id: 'model',
-            data: props.model.map((model) => ({...model, y: (model.high + model.low) / 2}))
-        });
-    }
-    const minDecibel = parsed.reduce((memo, value) => Math.min(memo, value.y || 0), -10);
-    const visibleDecibelValues = getDecibelValues(minDecibel);
-    const visibleFrequencyValues = getLogarithmicAxisValue(freqDelta, END_FREQ);
+    const data: Serie[] = props.data.map((spectrum, index) => {
+        if (spectrum.type === 'line') {
+            return {
+                id: index,
+                data: spectrum.points
+            };
+        } else {
+            return {
+                id: 'range' + index,
+                data: spectrum.points.map((point) => ({...point, y: (point.high + point.low) / 2}))
+            };
+        }
+    });
+    const visibleDecibelValues = getDecibelValues(LOW_DB);
+    const yScale = {
+        type: 'linear',
+        min: LOW_DB,
+        max: TOP_DB
+    } as const;
+    const xScale = {
+        type: 'log',
+        min: START_FREQ,
+        max: END_FREQ
+    } as const;
+    const visibleFrequencyValues = getLogarithmicAxisValue(START_FREQ, END_FREQ);
     return (
         <ResponsiveLine
             {...commonProps}
+            colors={props.data.map((datum) => datum.type === 'range' ? 'transparent' : datum.color)}
             data={data}
-            yScale={{
-                type: 'linear',
-                min: minDecibel,
-                max: TOP_DB
-            }}
+            yScale={yScale}
             gridYValues={visibleDecibelValues}
             axisLeft={{
                 ...commonProps.axisLeft,
                 tickValues: visibleDecibelValues
             }}
-            xScale={{
-                type: 'log',
-                min: freqDelta,
-                max: END_FREQ
-            }}
+            layers={getLayers(props.data)}
+            xScale={xScale}
             gridXValues={visibleFrequencyValues}
             axisBottom={{
                 tickRotation: 90,

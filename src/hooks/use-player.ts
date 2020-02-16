@@ -8,23 +8,32 @@ interface Params {
 }
 
 interface PlayerControls {
-    isFileLoaded: boolean;
+    isPlaying: boolean;
     currentBuffer: AudioBuffer | null;
     play: (ms?: number) => void;
     pause: () => void;
     stop: () => void;
     changeFile: (buffer: AudioBuffer) => void;
     getDbRange: () => [number, number];
-    getAudioContext: () => AudioContext;
+    playerContext: AudioContext;
     getFft: () => Float32Array;
 }
 
+let players: Tone.Player[] = [];
+
 function usePlayer(params: Params = {}): PlayerControls {
     const [currentBuffer, setCurrentBuffer] = React.useState<AudioBuffer | null>(null);
+    const [isPlaying, setPlaying] = React.useState(false);
     const player = React.useMemo(() => new Tone.Player(''), []);
     const analyzer = React.useMemo(() => new Tone.Analyser('fft', params.buckets || DEFAULT_BUCKETS_AMOUNT), [params.buckets]);
     const playerContext = React.useMemo(() => (player.context as any)._context as AudioContext, [player]);
     const rawAnalyserNode = React.useMemo(() => (analyzer as any).input as AnalyserNode, [analyzer]);
+    React.useEffect(() => {
+        players.push(player);
+        return () => {
+            players = players.filter((instance) => instance !== player);
+        }
+    }, [player]);
     React.useEffect(() => {
         player.fan(Tone.Master, analyzer);
         return () => {
@@ -32,30 +41,36 @@ function usePlayer(params: Params = {}): PlayerControls {
             player.disconnect(analyzer);
         };
     }, [player, analyzer]);
-    const controls = React.useMemo<PlayerControls>(() => {
-        return {
-            play: (ms) => {
-                player.start(0, ms ? ms / 1000 : 0)
-            },
-            pause: () => {
-                player.stop();
-            },
-            stop: () => {
-                player.seek(0, 0);
-                player.stop();
-            },
-            changeFile: (buffer: AudioBuffer) => {
-                player.buffer = new Tone.BufferSource(buffer, () => {}).buffer;
-                setCurrentBuffer(buffer);
-            },
-            getDbRange: () => [rawAnalyserNode.minDecibels, rawAnalyserNode.maxDecibels],
-            getAudioContext: () => playerContext,
-            getFft: () => analyzer.getValue(),
-            isFileLoaded: Boolean(currentBuffer),
-            currentBuffer
-        }
-    }, [player, analyzer, rawAnalyserNode, playerContext, currentBuffer]);
-    return controls;
+    const play = React.useCallback((ms) => {
+        const restPlayers = players.filter((instance) => instance !== player);
+        restPlayers.forEach((player) => player.stop());
+        player.start(0, ms ? ms / 1000 : 0);
+        setPlaying(true);
+    }, [player, setPlaying]);
+    const pause = React.useCallback(() => {
+        player.stop();
+        setPlaying(false);
+    }, [player, setPlaying]);
+    const stop = React.useCallback(() => {
+        player.seek(0, 0);
+        player.stop();
+        setPlaying(false);
+    }, [player, setPlaying]);
+    const changeFile = React.useCallback((buffer) => {
+        player.stop();
+        setPlaying(false);
+        player.buffer = new Tone.BufferSource(buffer, () => {}).buffer;
+        setCurrentBuffer(buffer);
+    }, [setCurrentBuffer, player, setPlaying]);
+    const getDbRange = React.useCallback<() => [number, number]>(
+        () => [rawAnalyserNode.minDecibels, rawAnalyserNode.maxDecibels],
+        [rawAnalyserNode]
+    );
+    const getFft = React.useCallback(() => analyzer.getValue(), [analyzer]);
+    return React.useMemo<PlayerControls>(() =>
+        ({play, pause, stop, changeFile, getDbRange, playerContext, getFft, isPlaying, currentBuffer}),
+        [play, pause, stop, changeFile, getDbRange, playerContext, getFft, isPlaying, currentBuffer]
+    );
 }
 
 export default usePlayer;

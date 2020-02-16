@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import FftVisualizer, {SpectrumStreamPoint} from './fft-visualizer';
+import FftVisualizer, {SpectrumRangePoint, SpectrumLinePoint} from './fft-visualizer';
 import Player from './player';
-import ModelPlayer from './model-player';
 
 const Body = styled.div({
     display: 'flex',
@@ -34,43 +33,55 @@ const Block = styled.div({
     flexDirection: 'column'
 });
 
+const COLORS = {
+    user: {
+        immediate: 'rgba(200, 100, 255)',
+        range: 'rgba(100, 100, 155)'
+    },
+    model: {
+        immediate: 'rgba(200, 230, 0)',
+        range: 'rgba(100, 100, 0)'
+    }
+};
+
 const Analyzer: React.FC = () => {
-    const [userSpectrum, setUserSpectrum] = React.useState<Float32Array>(new Float32Array());
-    const [modelSpectrum, setModelSpectrum] = React.useState<SpectrumStreamPoint[]>([{
-        x: 60,
-        low: -18,
-        high: -3
-    }, {
-        x: 1000,
-        low: -24,
-        high: -10
-    }, {
-        x: 4000,
-        low: -22,
-        high: -6
-    }, {
-        x: 15000,
-        low: -40,
-        high: -30
-    }]);
+    const [userImmediateSpectrum, setUserImmediateSpectrum] = React.useState<SpectrumLinePoint[]>([]);
+    const [modelSpectrumRange, setModelSpectrumRange] = React.useState<SpectrumRangePoint[]>([]);
+    const [userSpectrumRange, setUserSpectrumRange] = React.useState<SpectrumRangePoint[]>([]);
     return (
         <Body>
             <Flex>
                 <Block>
                     <Player
-                        updateSpectrum={setUserSpectrum}
+                        title="Твой трек"
+                        colors={COLORS.user}
+                        updateImmediateSpectrum={setUserImmediateSpectrum}
+                        updateSpectrumRange={setUserSpectrumRange}
                     />
                 </Block>
                 <Block>
-                    <ModelPlayer
-                        updateModelSpectrum={setModelSpectrum}
+                    <Player
+                        title="Трек-модель"
+                        colors={COLORS.model}
+                        updateSpectrumRange={setModelSpectrumRange}
                     />
                 </Block>
             </Flex>
             <VisualizerWrapper>
                 <FftVisualizer
-                    data={userSpectrum}
-                    model={modelSpectrum}
+                    data={[{
+                        type: 'range',
+                        color: COLORS.model.range,
+                        points: modelSpectrumRange
+                    }, {
+                        type: 'range',
+                        color: COLORS.user.range,
+                        points: userSpectrumRange
+                    }, {
+                        type: 'line',
+                        color: COLORS.user.immediate,
+                        points: userImmediateSpectrum
+                    }]}
                 />
             </VisualizerWrapper>
         </Body>

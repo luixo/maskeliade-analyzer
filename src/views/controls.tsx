@@ -10,6 +10,14 @@ interface Props {
     isFileLoaded: boolean;
     audioContext: AudioContext;
     onFileLoad: (file: AudioBuffer) => void;
+    progress?: {
+        text: string;
+        percentage?: number;
+    };
+    colors: {
+        immediate: string;
+        range: string;
+    };
 }
 
 const Wrapper = styled.div({
@@ -41,22 +49,59 @@ const Button = styled.div<{isActive: boolean}>((props) => ({
     cursor: 'pointer'
 }));
 
+const Progress = styled.div(() => ({
+    fontSize: 12
+}));
+
+const Main = styled.div({
+    background: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: 4,
+    padding: 8
+});
+
+const Header = styled.div({
+    display: 'inline-flex'
+});
+
+const Color = styled.div<{color: string}>(({color}) => ({
+    width: 15,
+    height: 15,
+    backgroundColor: color,
+    marginLeft: 6
+}));
+
 const Controls: React.FC<Props> = (props) => {
     return (
         <Wrapper>
             <ControlGroup paranja={!props.isFileLoaded}>
-                <Button isActive={!props.isPaused} onClick={props.isFileLoaded ? props.onPlay : undefined}>
+                <Button isActive={!props.isPaused} onClick={props.onPlay}>
                     <svg viewBox="0 0 512 512" width="24px" height="24px" xmlns="http://www.w3.org/2000/svg"><path d="m256 0c-140.96875 0-256 115.050781-256 256 0 140.96875 115.050781 256 256 256 140.96875 0 256-115.050781 256-256 0-140.96875-115.050781-256-256-256zm0 482c-124.617188 0-226-101.382812-226-226s101.382812-226 226-226 226 101.382812 226 226-101.382812 226-226 226zm0 0"/><path d="m181 404.027344 222.042969-148.027344-222.042969-148.027344zm30-240 137.957031 91.972656-137.957031 91.972656zm0 0"/></svg>
                 </Button>
-                <Button isActive={props.isPaused} onClick={props.isFileLoaded ? props.onPause : undefined}>
+                <Button isActive={props.isPaused} onClick={props.onPause}>
                     <svg viewBox="0 0 512 512" width="24px" height="24px" xmlns="http://www.w3.org/2000/svg"><path d="m256 0c-140.96875 0-256 115.050781-256 256 0 140.96875 115.050781 256 256 256 140.96875 0 256-115.050781 256-256 0-140.972656-115.050781-256-256-256zm0 482c-124.617188 0-226-101.382812-226-226s101.382812-226 226-226 226 101.382812 226 226-101.382812 226-226 226zm0 0"/><path d="m151 361h90v-210h-90zm30-180h30v150h-30zm0 0"/><path d="m271 361h90v-210h-90zm30-180h30v150h-30zm0 0"/></svg>
                 </Button>
             </ControlGroup>
-            <Uploader
-                prompt={props.isFileLoaded ? 'Песня загружена, жми play' : props.title}
-                audioContext={props.audioContext}
-                onUpload={props.onFileLoad}
-            />
+            <Main>
+                <Header>
+                    {props.title}
+                    <Color color={props.colors.range} />
+                    <Color color={props.colors.immediate} />
+                </Header>
+                <Uploader
+                    audioContext={props.audioContext}
+                    onUpload={props.onFileLoad}
+                />
+                {props.progress ?
+                    <Progress>
+                        <span>{props.progress.text}</span>
+                        {typeof props.progress.percentage === 'number' ?
+                            <span>: {Math.floor(props.progress.percentage * 100)} / 100</span> :
+                            null
+                        }
+                    </Progress> :
+                    null
+                }
+            </Main>
         </Wrapper>
     )
 };
