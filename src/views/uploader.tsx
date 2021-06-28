@@ -1,4 +1,5 @@
 import React from 'react';
+import {uploadFile} from '../utils/audio-utils';
 
 interface Props {
     audioContext: AudioContext;
@@ -9,24 +10,15 @@ const Uploader: React.FC<Props> = (props) => {
     return (
         <input
             type="file"
-            onChange={(e) => {
-                if (!e.target.files || e.target.files.length === 0) {
+            onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) {
                     return;
                 }
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    try {
-                        const decodedData = await props.audioContext.decodeAudioData(event.target!.result as ArrayBuffer);
-                        props.onUpload(decodedData);
-                    } catch (e) {
-                        console.log('Sorry this browser unable to download this file... try Chrome', e);
-                    }
-                };
-
-                reader.onerror = (evt) => {
-                    console.error('An error ocurred reading the file: ', evt);
-                };
-                reader.readAsArrayBuffer(e.target.files[0]);
+                const audio = await uploadFile(file, props.audioContext);
+                if (audio) {
+                    props.onUpload(audio);
+                }
             }}
             style={{padding: '8px 0'}}
         />

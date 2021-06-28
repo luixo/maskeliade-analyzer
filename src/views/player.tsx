@@ -1,24 +1,50 @@
 import React from 'react';
+import styled from 'styled-components/macro';
 import Waveform from './waveform';
-import Controls from './controls';
+import AudioDropdown from './audio-dropdown';
 import usePlayer from '../hooks/use-player';
 import {SpectrumRangePoint, SpectrumLinePoint} from './fft-visualizer';
 import {getAverages, getBins, msToSample} from '../utils/spectrum-utils';
 
 interface Props {
-    title: string;
+    texts: {
+        title: string;
+        no: number;
+        prompt: string;
+    };
     colors: {
         immediate: string;
         range: string;
+        waveform: string;
     };
     updateImmediateSpectrum?: (spectrum: SpectrumLinePoint[]) => void;
     updateSpectrumRange?: (spectrumRange: SpectrumRangePoint[]) => void;
+    onAudioLoaded: () => void;
+    disabled?: boolean;
 }
+
+const Wrapper = styled.div({
+    flexGrow: 1
+});
+
+const Title = styled.div({
+    fontWeight: 500,
+    fontSize: 32,
+    lineHeight: '52px',
+    textTransform: 'uppercase',
+    marginBottom: 16
+});
+
+const InnerWrapper = styled.div({
+    flexGrow: 1,
+    display: 'flex',
+    alignItems: 'center'
+});
 
 const DEFAULT_RANGE: [number, number] = [0, 30000];
 
 const Player: React.FC<Props> = (props) => {
-    const {updateSpectrumRange, updateImmediateSpectrum} = props;
+    const {updateSpectrumRange, updateImmediateSpectrum, disabled} = props;
     const {isPlaying, playerContext, currentBuffer, changeFile, getFft, play, stop} = usePlayer();
     const [audio, setAudio] = React.useState<AudioBuffer | null>(null);
     const [progress, setProgress] = React.useState<{text: string, percentage?: number}>({text: 'Жду загрузки'});
@@ -50,6 +76,11 @@ const Player: React.FC<Props> = (props) => {
             cancelAnimationFrame(cancellationHandle);
         };
     }, [isPlaying, getFft, updateImmediateSpectrum]);
+    React.useEffect(() => {
+        if (audio) {
+            props.onAudioLoaded();
+        }
+    }, [audio]);
     const calculateAverage = React.useCallback(async (startInMs: number, endInMs: number) => {
         if (!audio || !updateSpectrumRange) {
             return;
@@ -76,38 +107,44 @@ const Player: React.FC<Props> = (props) => {
         setOffsetTime(time);
     }, [currentBuffer, play, setOffsetTime]);
     return (
-        <>
-            <Controls
-                title={props.title}
-                isFileLoaded={Boolean(currentBuffer)}
-                audioContext={playerContext}
-                onFileLoad={(buffer) => {
-                    changeFile(buffer);
-                    setAudio(buffer);
-                }}
-                colors={props.colors}
-                isPaused={isPlaying}
-                onPlay={() => play(offsetTime)}
-                onPause={stop}
-                progress={progress}
-            />
-            <Waveform
-                data={currentBuffer}
-                currentTime={offsetTime}
-                onClick={onWaveformClick}
-                width={300}
-                height={100}
-                brush={{
-                    initialStart: DEFAULT_RANGE[0],
-                    initialEnd: DEFAULT_RANGE[1],
-                    onUpdate: (startInMs, endInMs) => {
-                        if (audio) {
-                            calculateAverage(startInMs, endInMs);
-                        }
-                    }
-                }}
-            />
-        </>
+        <Wrapper>
+            <Title>
+                {props.texts.title}
+            </Title>
+            <InnerWrapper>
+                {audio ?
+                    <Waveform
+                        data={currentBuffer}
+                        currentTime={offsetTime}
+                        onClick={onWaveformClick}
+                        height={100}
+                        brush={{
+                            initialStart: DEFAULT_RANGE[0],
+                            initialEnd: DEFAULT_RANGE[1],
+                            onUpdate: (startInMs, endInMs) => {
+                                if (audio) {
+                                    calculateAverage(startInMs, endInMs);
+                                }
+                            }
+                        }}
+                        color={props.colors.waveform}
+                    /> :
+                    disabled ?
+                        null :
+                        <AudioDropdown
+                            texts={{
+                                no: props.texts.no,
+                                title: props.texts.prompt
+                            }}
+                            audioContext={playerContext}
+                            onFileLoad={(buffer) => {
+                                changeFile(buffer);
+                                setAudio(buffer);
+                            }}
+                        />
+                }
+            </InnerWrapper>
+        </Wrapper>
     )
 };
 

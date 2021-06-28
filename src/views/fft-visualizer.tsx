@@ -1,4 +1,5 @@
 import React from 'react';
+import styled from 'styled-components/macro';
 import {area, curveNatural} from 'd3-shape';
 import {CustomLayerProps, ResponsiveLine, LineSvgProps, Datum, Serie, Layer, CustomLayer} from '@nivo/line';
 
@@ -35,6 +36,11 @@ const START_FREQ = 20;
 const END_FREQ = 20 * 2048 / 2;
 const TOP_DB = 6;
 const LOW_DB = -100;
+
+const Wrapper = styled.div({
+    width: '100%',
+    height: '100%'
+});
 
 function getLogarithmicAxisValue(from: number, to: number): number[] {
     let min = Math.floor(Math.log10(from));
@@ -119,25 +125,27 @@ const FftVisualizer: React.FC<Props> = (props) => {
     } as const;
     const visibleFrequencyValues = getLogarithmicAxisValue(START_FREQ, END_FREQ);
     return (
-        <ResponsiveLine
-            {...commonProps}
-            colors={props.data.map((datum) => datum.type === 'range' ? 'transparent' : datum.color)}
-            data={data}
-            yScale={yScale}
-            gridYValues={visibleDecibelValues}
-            axisLeft={{
-                ...commonProps.axisLeft,
-                tickValues: visibleDecibelValues
-            }}
-            layers={getLayers(props.data)}
-            xScale={xScale}
-            gridXValues={visibleFrequencyValues}
-            axisBottom={{
-                tickRotation: 90,
-                legend: 'frequency',
-                tickValues: visibleFrequencyValues
-            }}
-        />
+        <Wrapper>
+            <ResponsiveLine
+                {...commonProps}
+                colors={props.data.map((datum) => datum.type === 'range' ? 'transparent' : datum.color)}
+                data={data}
+                yScale={yScale}
+                gridYValues={visibleDecibelValues}
+                axisLeft={{
+                    ...commonProps.axisLeft,
+                    tickValues: visibleDecibelValues
+                }}
+                layers={getLayers(props.data)}
+                xScale={xScale}
+                gridXValues={visibleFrequencyValues}
+                axisBottom={{
+                    tickRotation: 90,
+                    legend: 'frequency',
+                    tickValues: visibleFrequencyValues
+                }}
+            />
+        </Wrapper>
     );
 };
 
